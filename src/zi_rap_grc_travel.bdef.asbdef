@@ -1,0 +1,104 @@
+//konsep managed scenario serta draft mode.
+
+managed;  //implementation in class zbp_i_rap_grc_travel unique;
+with draft; //
+//strict ( 2 );
+
+define behavior for ZI_RAP_GRC_travel alias Travel
+implementation in class zbp_i_rap_travel_grc  unique
+persistent table ztbl_grc_travel //Menunjukkan bahwa data entitas ini akan disimpan pada tabel ztbl_grc_travel.
+draft table zrap_dtrav_grc
+lock master total etag LastChangedAt //Semua instance Travel akan dikunci saat ada perubahan.
+authorization master ( instance )
+etag master LocalLastChangedAt //ETag untuk mengidentifikasi versi dari data, yang diidentifikasi dengan LocalLastChangedAt.
+{
+  create;
+  update;
+  delete;
+  association _Booking { create; with draft; }
+
+  field ( numbering : managed, readonly ) TravelUuid;
+  field ( readonly  ) TravelID, TotalPrice, OverallStatus; //tidak bisa diedit langsung.
+  field ( readonly  ) LastChangedAt, LastChangedBy, CreatedAt, CreatedBy, LocalLastChangedAt;
+  field ( mandatory ) AgencyID, CustomerID; // wajib diisi saat membuat data.
+
+   action ( features : instance ) acceptTravel result [1] $self; // untuk menangani approval
+  action ( features : instance ) rejectTravel result [1] $self; // untuk menangani reject.
+  internal action recalcTotalPrice; //menghitung ulang total harga.
+
+//Determinations (Perhitungan Otomatis)
+  determination setInitialStatus    on modify { create; }
+determination calculateTotalPrice on modify { field BookingFee, CurrencyCode; }
+determination calculateTravelID   on save   { create; }
+
+//Validations (Pengecekan Sebelum Simpan)
+  validation validateAgency   on save { field AgencyID; create; }
+  validation validateCustomer on save { field CustomerID; create; }
+  validation validateDates    on save { field BeginDate, EndDate; create; }
+
+// Draft Action untuk Validasi Sebelum Draft Disimpan
+   draft determine action Prepare  {
+    validation validateAgency;
+    validation validateCustomer;
+    validation validateDates;
+  }
+
+// Memastikan data dari view Travel sesuai dengan tabel ztbl_grc_travel
+  mapping for ztbl_grc_travel
+  {
+        TravelUUID      = travel_uuid;
+        TravelID        = travel_id;
+        AgencyID        = agency_id;
+        CustomerID      = customer_id;
+        BeginDate       = begin_date;
+        EndDate         = end_date;
+        BookingFee      = booking_fee;
+        TotalPrice = total_price;
+        CurrencyCode    = currency_code;
+        Description     = description;
+        OverallStatus    = overall_status;
+        CreatedBy       = created_by;
+        CreatedAt       = created_at;
+        LastChangedBy   = last_changed_by;
+        LastChangedAt   = last_changed_at;
+        LocalLastChangedAt  = local_last_changed_At;
+  }
+}
+
+define behavior for ZI_RAP_GRC_BOOK alias Booking
+implementation in class zbp_i_rap_book_grc  unique
+persistent table zrap_grc_booking
+draft table zrap_dbook_grc
+lock dependent by _Travel
+authorization dependent by _Travel
+etag master LocalLasChangedAt
+{
+  update;
+  delete;
+  association _Travel { with draft; }
+
+  field ( numbering : managed, readonly ) BookingUuid;
+ field ( readonly ) TravelUUID, BookingID;
+  field ( readonly ) CreatedBy, LastChangedBy, LocalLasChangedAt;
+
+   determination calculateBookingID  on modify { create; }
+  determination calculateTotalPrice on modify { field FlightPrice, CurrencyCode; }
+
+   mapping for zrap_grc_booking
+  {
+        BookingUUID      = booking_uuid;
+        TravelUUID       = travel_uuid;
+        BookingID        = booking_id;
+        BookingDate      = booking_date;
+        CustomerID       = customer_id;
+        CarrierID        = carrier_id;
+        ConnectionID     = connection_id;
+        FlightDate       = flight_date;
+        FlightPrice      = flight_price;
+        CurrencyCode     = currency_code;
+        CreatedBy       = created_by;
+        LastChangedBy   = last_changed_by;
+        LocalLasChangedAt  = local_las_changed_At;
+  }
+
+}

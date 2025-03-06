@@ -1,0 +1,16 @@
+@EndUserText.label: 'access control for ZI_RAP_GRC_TRAVEL'
+@MappingRole: true
+define role ZI_RAP_GRC_TRAVEL {
+    grant
+        select
+            on
+                ZI_RAP_GRC_TRAVEL
+                    where
+                        currencyCode = 'EUR'
+                        and
+                        ( OverallStatus ) = aspect pfcg_auth(ZOSTAT_GRC, ZOSTAT_GRC, ACTVT = '03' )
+                        OR
+                        TRUE // work-arround  because of ABAP environment trial restrictions
+                        ;
+                        
+}
